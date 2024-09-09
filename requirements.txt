@@ -1,0 +1,4 @@
+fastapi
+uvicorn
+youtube_transcript_api
+pydantic
