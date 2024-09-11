@@ -55,7 +55,57 @@ class FreeProxyManager:
             for proxy, time_taken in self.proxies:
                 file.write(f"{proxy},{time_taken}\n")
 
-    # O resto do código permanece o mesmo...
+    def update_proxy_list(self, url="https://raw.githubusercontent.com/TheSpeedX/PROXY-List/master/http.txt"):
+        try:
+            response = requests.get(url)
+            response.raise_for_status()
+            proxy_lines = response.text.strip().split("\n")
+            proxies_to_test = [
+                {"http": f"http://{proxy}", "https": f"http://{proxy}"}
+                for proxy in proxy_lines
+                if proxy not in self.blacklist
+            ]
+
+            max_workers = max(os.cpu_count() * 2, MAX_WORKERS)
+            print(f"Testing {len(proxies_to_test)} proxies with {max_workers} workers...")
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                results = list(executor.map(self._test_proxy, proxies_to_test))
+
+            self.proxies = [
+                (proxy["http"].split("//")[1], time_taken)
+                for proxy, (is_working, time_taken) in zip(proxies_to_test, results)
+                if is_working
+            ]
+            self.proxies.sort(key=lambda x: x[1])
+            self.save_working_proxies()
+            print(f"Updated proxy list with {len(self.proxies)} working proxies.")
+            self.blacklist.update(set(proxy_lines) - set(proxy[0] for proxy in self.proxies))
+            self.save_blacklist()
+        except requests.RequestException as e:
+            print(f"Error fetching proxies: {e}")
+
+    def get_proxy(self):
+        if self.proxies:
+            fastest_proxy, fastest_time = self.proxies[0]
+            print(f"Using fastest proxy: {fastest_proxy} with response time: {fastest_time:.2f} seconds")
+            return {
+                "http": f"http://{fastest_proxy}",
+                "https": f"http://{fastest_proxy}",
+            }
+        else:
+            print("Proxy list is empty. Fetching new proxies.")
+            self.update_proxy_list()
+            return self.get_proxy() if self.proxies else None
+
+    def remove_and_update_proxy(self, non_functional_proxy):
+        non_functional_proxy_address = non_functional_proxy["http"].split("//")[1]
+        self.proxies = [proxy for proxy in self.proxies if proxy[0] != non_functional_proxy_address]
+        self.blacklist.add(non_functional_proxy_address)
+        self.save_blacklist()
+        print(f"Removed and blacklisted non-functional proxy: {non_functional_proxy_address}")
+        if len(self.proxies) < 5:
+            print("Proxy count low, updating proxy list...")
+            self.update_proxy_list()
 
     def _test_proxy(self, proxy):
         test_url = "https://www.google.com"
