@@ -2,7 +2,3 @@ fastapi
 uvicorn
 youtube_transcript_api
 pydantic
-<<<<<<< HEAD
-fastapi-utils
-=======
->>>>>>> e4b1307e1079603412f3dabc4a88de6128e81a7c
