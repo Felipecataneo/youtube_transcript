@@ -75,7 +75,7 @@ async def get_transcript(request: TranscriptRequest):
 
         if not proxy:
             logger.warning("Nenhum proxy disponível.")
-            raise HTTPException(status_code=500, detail="Não há proxies disponíveis no momento.")
+            raise HTTPException(status_code=503, detail="Não há proxies disponíveis no momento. Por favor, tente novamente mais tarde.")
 
         # Utilizar o proxy para buscar a transcrição
         logger.info(f"Buscando transcrição para o vídeo {request.video_id}...")
@@ -91,18 +91,20 @@ async def get_transcript(request: TranscriptRequest):
         logger.info("Retornando transcrição formatada.")
         return TranscriptResponse(transcript=formatted_transcript)
 
-    except (TranscriptsDisabled, NoTranscriptFound, VideoUnavailable) as e:
-        logger.error(f"Erro ao buscar transcrição: {str(e)}")
-        # Se o proxy falhou, removê-lo e tentar com outro
-        if proxy:
-            proxy_manager.remove_and_update_proxy(proxy)
-        raise HTTPException(status_code=400, detail=f"Erro ao buscar transcrição: {str(e)}")
-    
+    except TranscriptsDisabled:
+        logger.error(f"Legendas desativadas para o vídeo: {request.video_id}")
+        raise HTTPException(status_code=404, detail="As legendas estão desativadas para este vídeo.")
+    except NoTranscriptFound:
+        logger.error(f"Nenhuma transcrição encontrada para o vídeo: {request.video_id}")
+        raise HTTPException(status_code=404, detail="Não foi possível encontrar uma transcrição para este vídeo.")
+    except VideoUnavailable:
+        logger.error(f"Vídeo indisponível: {request.video_id}")
+        raise HTTPException(status_code=404, detail="O vídeo solicitado está indisponível.")
     except Exception as e:
-        logger.error(f"Erro inesperado: {str(e)}")
+        logger.error(f"Erro inesperado ao buscar transcrição: {str(e)}")
         if proxy:
             proxy_manager.remove_and_update_proxy(proxy)  # Remover o proxy não funcional
-        raise HTTPException(status_code=500, detail=f"Erro inesperado ao buscar transcrição: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Erro inesperado ao buscar transcrição. Por favor, tente novamente mais tarde.")
 
 @app.get("/")
 def home():
