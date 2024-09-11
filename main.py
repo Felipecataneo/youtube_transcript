@@ -16,14 +16,20 @@ proxy_manager = FreeProxyManager()
 # Função para atualizar a lista de proxies periodicamente
 async def update_proxy_list_periodically():
     while True:
-        proxy_manager.update_proxy_list()
+        try:
+            proxy_manager.update_proxy_list()
+        except Exception as e:
+            logger.error(f"Erro ao atualizar lista de proxies: {str(e)}")
         await asyncio.sleep(3600)  # Atualiza a cada hora
 
 # Gerenciador de contexto para o ciclo de vida da aplicação
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Código a ser executado na inicialização
-    proxy_manager.update_proxy_list()
+    try:
+        proxy_manager.update_proxy_list()
+    except Exception as e:
+        logger.error(f"Erro ao inicializar lista de proxies: {str(e)}")
     task = asyncio.create_task(update_proxy_list_periodically())
     yield
     # Código a ser executado no encerramento
@@ -76,7 +82,8 @@ async def get_transcript(request: TranscriptRequest):
     
     except Exception as e:
         logger.error(f"Erro inesperado: {str(e)}")
-        proxy_manager.remove_and_update_proxy(proxy)  # Remover o proxy não funcional
+        if proxy:
+            proxy_manager.remove_and_update_proxy(proxy)  # Remover o proxy não funcional
         raise HTTPException(status_code=500, detail="Erro inesperado ao buscar transcrição")
 
 @app.get("/")
