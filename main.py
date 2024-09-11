@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from youtube_transcript_api import YouTubeTranscriptApi, TranscriptsDisabled, NoTranscriptFound, VideoUnavailable
-from free_proxy_manager import FreeProxyManager
+from FreeProxyManager import FreeProxyManager
 import logging
 from contextlib import asynccontextmanager
 import asyncio
