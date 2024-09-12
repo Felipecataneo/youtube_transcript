@@ -23,8 +23,8 @@ Este projeto implementa uma API FastAPI para obter transcrições de vídeos do 
 
 1. Clone o repositório:
    ```
-   git clone https://github.com/seu-usuario/youtube-transcript-api-proxy.git
-   cd youtube-transcript-api-proxy
+   git clone https://github.com/Felipecataneo/youtube_transcript.git
+   cd youtube-transcript
    ```
 
 2. Instale as dependências:
@@ -113,5 +113,5 @@ Ao usar este projeto, você reconhece que entendeu estas considerações e conco
 
 ## Contribuindo
 
-Contribuições são bem-vindas! Por favor, sinta-se à vontade para submeter pull requests ou abrir issues para discutir possíveis melhorias ou relatar bugs.
+Contribuições são bem-vindas! Por favor, sinta-se à vontade para discutir possíveis melhorias ou relatar bugs.
 
