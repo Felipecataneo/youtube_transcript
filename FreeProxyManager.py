@@ -103,6 +103,8 @@ class FreeProxyManager:
         self.blacklist.add(non_functional_proxy_address)
         self.save_blacklist()
         print(f"Removed and blacklisted non-functional proxy: {non_functional_proxy_address}")
+        
+        # Atualiza a lista de proxies se o número de proxies restantes for insuficiente
         if len(self.proxies) < 5:
             print("Proxy count low, updating proxy list...")
             self.update_proxy_list()
