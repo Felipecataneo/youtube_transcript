@@ -148,7 +148,6 @@ async def get_transcript(request: TranscriptRequest):
                     request.video_id,
                     proxies=proxy,
                     languages=['pt-BR', 'pt', 'en'],
-                    headers=headers,  # Parâmetro correto para headers
                     timeout=15
                 )
             except NoTranscriptAvailable:
