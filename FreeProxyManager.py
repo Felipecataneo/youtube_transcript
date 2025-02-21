@@ -8,84 +8,116 @@ class FreeProxyManager:
     _instance = None
     proxy_sources = [
         "https://raw.githubusercontent.com/TheSpeedX/PROXY-List/master/http.txt",
-        "https://proxy-list.download/api/v1/get?type=http",
-        # Adicione mais fontes
+        "https://api.proxyscrape.com/v2/?request=getproxies&protocol=http",
+        "https://www.proxy-list.download/api/v1/get?type=http"
     ]
-
+    
     def __init__(self):
+        self.blacklist_file = "blacklisted_proxies.txt"
+        self.working_proxies_file = "working_proxies.txt"
         self.ensure_files_exist()
-        self.proxies = self.load_working_proxies()
-        self.blacklist = self.load_blacklist()
-        self.current_index = 0
+        self.proxies = []
+        self.blacklist = set()
+        self.current_source_index = 0
+        self.proxy_test_frequency = 1
+        self.load_initial_proxies()
 
-    # ... (métodos existentes mantidos)
+    def ensure_files_exist(self):
+        for file_path in [self.blacklist_file, self.working_proxies_file]:
+            if not os.path.exists(file_path):
+                with open(file_path, 'w') as f:
+                    pass
+        logger.info("Arquivos de proxy verificados/criados")
+
+    def load_initial_proxies(self):
+        try:
+            with open(self.working_proxies_file, 'r') as f:
+                self.proxies = [line.strip() for line in f if line.strip()]
+            logger.info(f"Carregados {len(self.proxies)} proxies iniciais")
+        except FileNotFoundError:
+            self.proxies = []
+            
+        try:
+            with open(self.blacklist_file, 'r') as f:
+                self.blacklist = set(line.strip() for line in f if line.strip())
+        except FileNotFoundError:
+            self.blacklist = set()
+
+    def rotate_source(self):
+        self.current_source_index = (self.current_source_index + 1) % len(self.proxy_sources)
+        logger.info(f"Rotacionando para fonte: {self.proxy_sources[self.current_source_index]}")
+        self.update_proxy_list()
 
     def update_proxy_list(self):
-        proxy_lines = []
-        for url in self.proxy_sources:  # Usar múltiplas fontes
-            try:
-                response = requests.get(url, timeout=10)
-                proxy_lines.extend(response.text.strip().split("\n"))
-            except:
-                continue
-        
-        proxies_to_test = [
-            {"http": f"http://{p}", "https": f"http://{p}"}
-            for p in set(proxy_lines) 
-            if p not in self.blacklist
-        ]
-
-        with ThreadPoolExecutor(max_workers=50) as executor:
-            results = list(executor.map(self._test_proxy, proxies_to_test))
-
-        self.proxies = [
-            (proxy["http"].split("//")[1], time_taken)
-            for proxy, (is_working, time_taken) in zip(proxies_to_test, results)
-            if is_working
-        ]
-        
-        # Ordenar e misturar os melhores proxies
-        self.proxies.sort(key=lambda x: x[1])
-        if len(self.proxies) > 10:
-            top_proxies = self.proxies[:10]
-            random.shuffle(top_proxies)
-            self.proxies = top_proxies + self.proxies[10:]
-
-        self.save_working_proxies()
+        try:
+            source = self.proxy_sources[self.current_source_index]
+            response = requests.get(source, timeout=10)
+            raw_proxies = response.text.strip().split('\n')
+            
+            testable_proxies = [
+                p.strip() for p in raw_proxies 
+                if p.strip() and p.strip() not in self.blacklist
+            ]
+            
+            with ThreadPoolExecutor(max_workers=50) as executor:
+                results = list(executor.map(self._test_proxy, testable_proxies))
+            
+            self.proxies = [
+                proxy for proxy, success in zip(testable_proxies, results)
+                if success
+            ]
+            
+            logger.info(f"Lista atualizada com {len(self.proxies)} proxies funcionais")
+            self._save_working_proxies()
+            
+        except Exception as e:
+            logger.error(f"Erro ao atualizar proxies: {str(e)}")
 
     def _test_proxy(self, proxy):
         try:
+            test_proxy = {"http": f"http://{proxy}", "https": f"http://{proxy}"}
             start = time.time()
             response = requests.get(
-                "https://www.youtube.com/robots.txt",  # Testar contra YouTube
-                proxies=proxy,
+                "https://www.youtube.com/robots.txt",
+                proxies=test_proxy,
                 timeout=7
             )
             if response.status_code == 200:
-                return (True, time.time() - start)
+                return True
         except:
-            return (False, float("inf"))
+            pass
+        return False
+
+    def _save_working_proxies(self):
+        with open(self.working_proxies_file, 'w') as f:
+            for proxy in self.proxies:
+                f.write(proxy + "\n")
 
     def get_proxy(self):
         if not self.proxies:
             self.update_proxy_list()
-        
+            
         if not self.proxies:
             return None
             
-        # Rotação de proxies
-        proxy = self.proxies[self.current_index % len(self.proxies)]
-        self.current_index += 1
+        proxy = random.choice(self.proxies)
         return {
-            "http": f"http://{proxy[0]}", 
-            "https": f"http://{proxy[0]}"
+            "http": f"http://{proxy}",
+            "https": f"http://{proxy}"
         }
 
-    def remove_and_update_proxy(self, bad_proxy):
-        proxy_addr = bad_proxy["http"].split("//")[1]
-        self.proxies = [p for p in self.proxies if p[0] != proxy_addr]
-        self.blacklist.add(proxy_addr)
-        self.save_blacklist()
-        
-        if len(self.proxies) < 15:  # Atualizar mais cedo
-            self.update_proxy_list()
+    def mark_proxy_failed(self, proxy_url):
+        proxy = proxy_url.split("//")[1]
+        if proxy in self.proxies:
+            self.proxies.remove(proxy)
+        self.blacklist.add(proxy)
+        with open(self.blacklist_file, 'a') as f:
+            f.write(proxy + "\n")
+        logger.info(f"Proxy {proxy} marcado como falho e na blacklist")
+
+    def increase_refresh_frequency(self):
+        self.proxy_test_frequency = max(0.5, self.proxy_test_frequency / 2)
+        logger.info(f"Nova frequência de atualização: {self.proxy_test_frequency}h")
+
+    def current_source(self):
+        return self.proxy_sources[self.current_source_index]
