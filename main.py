@@ -12,6 +12,7 @@ from youtube_transcript_api import (
     TranscriptsDisabled,
     NoTranscriptFound,
     VideoUnavailable,
+    NoTranscriptAvailable
 )
 import requests
 from FreeProxyManager import FreeProxyManager
