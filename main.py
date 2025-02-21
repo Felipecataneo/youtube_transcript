@@ -138,27 +138,28 @@ async def get_transcript(request: TranscriptRequest):
                 raise HTTPException(503, "Nenhum proxy disponível")
                 
             user_agent = random.choice(USER_AGENTS)
+            headers = {'User-Agent': user_agent}
             
             logger.info(f"Tentativa {attempt+1}/{max_attempts} com proxy: {proxy['http']}")
 
             try:
-                # Primeira tentativa com prioridade de idiomas
+                # Tentar em português brasileiro com fallback
                 transcript = YouTubeTranscriptApi.get_transcript(
                     request.video_id,
                     proxies=proxy,
                     languages=['pt-BR', 'pt', 'en'],
-                    user_agent=user_agent,
+                    headers=headers,  # Parâmetro correto para headers
                     timeout=15
                 )
             except NoTranscriptAvailable:
-                # Fallback para qualquer transcrição disponível
+                # Buscar qualquer transcrição disponível
                 transcript = YouTubeTranscriptApi.get_transcript(
                     request.video_id,
                     proxies=proxy,
-                    user_agent=user_agent,
+                    headers=headers,
                     timeout=15
                 )
-            
+
             formatted = [
                 TranscriptEntry(
                     text=entry['text'],
