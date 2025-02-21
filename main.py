@@ -156,7 +156,6 @@ async def get_transcript(request: TranscriptRequest):
                 transcript = YouTubeTranscriptApi.get_transcript(
                     request.video_id,
                     proxies=proxy,
-                    headers=headers,
                     timeout=15
                 )
 
