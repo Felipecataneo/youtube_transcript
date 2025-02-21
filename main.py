@@ -147,15 +147,13 @@ async def get_transcript(request: TranscriptRequest):
                 transcript = YouTubeTranscriptApi.get_transcript(
                     request.video_id,
                     proxies=proxy,
-                    languages=['pt-BR', 'pt', 'en'],
-                    timeout=15
+                    languages=['pt-BR', 'pt', 'en']
                 )
             except NoTranscriptAvailable:
                 # Buscar qualquer transcrição disponível
                 transcript = YouTubeTranscriptApi.get_transcript(
                     request.video_id,
-                    proxies=proxy,
-                    timeout=15
+                    proxies=proxy
                 )
 
             formatted = [
